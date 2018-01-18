@@ -1,0 +1,112 @@
+<?php
+
+namespace ProcessWire;
+
+class InputfieldBusinessHours extends Inputfield
+{
+    public function __construct()
+    {
+        include_once(__DIR__ . '/BusinessHours.php');
+        parent::__construct();
+    }
+
+    public static function getModuleInfo()
+    {
+        return array(
+            'title' => 'Inputfield Business Hours',
+            'summary' => 'Renders an input field for entering business hours',
+            'version' => 1,
+            'permanent' => false,
+            'requires' => 'FieldtypeBusinessHours'
+        );
+    }
+
+    private static function getDaysOfTheWeek()
+    {
+        $days = array(
+            1 => _x('Monday', 'day'),
+            2 => _x('Tuesday', 'day'),
+            3 => _x('Wednesday', 'day'),
+            4 => _x('Thursday', 'day'),
+            5 => _x('Friday', 'day'),
+            6 => _x('Saturday', 'day'),
+            7 => _x('Sunday', 'day')
+        );
+
+        return $days;
+    }
+
+    public function ___getConfigInputfields()
+    {
+        $inputfields = parent::___getConfigInputfields();
+
+        $field = $this->modules->get('InputfieldMarkup');
+        $field->label = $this->_('API Notes');
+        $field->description = $this->_('The following can be used in your templates:');
+        $field->value = '<p>Days are from 1 to 7 where 1 is Monday and 7 is Sunday</p>';
+        $field->value .= '<pre>';
+        $field->value .= '$page->' . $this->name . '->isNowOpen()' . PHP_EOL;
+        $field->value .= '$page->' . $this->name . '[1]->inRange(\'11:00\')' . PHP_EOL;
+        $field->value .= 'if($page->' . $this->name . '[1] == null) { echo \'Closed on Monday\'; }' . PHP_EOL;
+        $field->value .= '(string)$page->' . $this->name . '[1]' . PHP_EOL;
+        $field->value .= '</pre>';
+
+        $inputfields->add($field);
+
+        return $inputfields;
+    }
+
+    /**
+     * @param \ProcessWire\WireInputData $input
+     * @return $this
+     */
+    public function ___processInput(WireInputData $input)
+    {
+        if (!isset($input[$this->attr('name')])) {
+            return $this;
+        }
+
+        foreach ($input[$this->attr('name')] as $day => $string) {
+            $this->value[$day] = FieldtypeBusinessHours::stringToBusinessDay($day, $string);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param array|string $key
+     * @param array|int|string $value
+     * @return $this
+     * @throws \ProcessWire\WireException
+     */
+    public function setAttribute($key, $value)
+    {
+        if ($key == 'value' && !$value instanceof BusinessHours && !is_null($value)) {
+            throw new WireException('Value should be an instance of BusinessHours');
+        }
+
+        return parent::setAttribute($key, $value);
+    }
+
+    public function ___render()
+    {
+        $name = $this->attr('name');
+        $id = $this->attr('id');
+        $value = $this->attr('value');
+
+        $output = '<table class="AdminDataTable AdminDataList AdminDataTableResponsive">';
+        foreach (self::getDaysOfTheWeek() as $index => $day) {
+            $fieldName = $name . '[' . $index . ']';
+            $fieldId = $id . '[' . $index . ']';
+            $output .= '<tr>';
+            $output .= '<td>' . $day . '</td>';
+            $output .= '<td><input value="' . $value[$index] . '" id="' . $fieldId . '" name="' . $fieldName . '" class="InputfieldMaxWidth" type="text"></td>';
+            $output .= '</tr>';
+        }
+        $output .= '</table>';
+
+        $output .= '<p class="notes">' . _x('Example', 'notes') . ': 9:30-12:00,13:00-17:30</p>';
+
+        return $output;
+    }
+}

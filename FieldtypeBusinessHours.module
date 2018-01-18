@@ -1,0 +1,156 @@
+<?php
+
+namespace ProcessWire;
+
+class FieldtypeBusinessHours extends Fieldtype
+{
+    public function __construct()
+    {
+        include_once(__DIR__ . '/BusinessHours.php');
+        parent::__construct();
+    }
+
+    public static function getModuleInfo()
+    {
+        return array(
+            'title' => 'Fieldtype Business Hours',
+            'version' => '1',
+            'summary' => 'Field that stored business hours',
+            'installs' => 'InputfieldBusinessHours'
+        );
+    }
+
+    /**
+     * Tries to parse a string to a business day. If parsing fails it returns null.
+     * @param int $day
+     * @param string $string
+     * @return \ProcessWire\BusinessHoursDay|null
+     */
+    public static function stringToBusinessDay($day, $string)
+    {
+        // Example $string: 9:00-12:30,13:00-17:00
+
+        $entries = array();
+        $entryStrings = array_filter(explode(',', $string));
+
+        foreach ($entryStrings as $entryString) {
+            $fromTo = array_filter(explode('-', $entryString));
+            if (count($fromTo) != 2) {
+                continue;
+            }
+
+            if(strpos($fromTo[0], ':') === false) {
+                $fromTo[0] .= ':00';
+            }
+
+            if(strpos($fromTo[1], ':') === false) {
+                $fromTo[1] .= ':00';
+            }
+
+            try {
+                $from = new \DateTimeImmutable($fromTo[0]);
+                $to = new \DateTimeImmutable($fromTo[1]);
+            } catch (\Exception $e) {
+                continue;
+            }
+
+            $entries[] = new BusinessHoursEntry($from->format('H:i'), $to->format('H:i'));
+        }
+
+        if (!count($entries)) {
+            return null;
+        }
+
+        return new BusinessHoursDay($day, $entries);
+    }
+
+    /**
+     * @param \ProcessWire\Page $page
+     * @param \ProcessWire\Field $field
+     * @return null|\ProcessWire\_Module|\ProcessWire\Inputfield|\ProcessWire\Module
+     * @throws \ProcessWire\WirePermissionException
+     */
+    public function getInputfield(Page $page, Field $field)
+    {
+        return $this->modules->get('InputfieldBusinessHours');
+    }
+
+    /**
+     * @param \ProcessWire\Page $page
+     * @param \ProcessWire\Field $field
+     * @param int|object|\ProcessWire\WireArray|string $value
+     * @return int|null|object|\ProcessWire\BusinessHours|\ProcessWire\WireArray|string
+     */
+    public function sanitizeValue(Page $page, Field $field, $value)
+    {
+        if (!$value instanceof BusinessHours) {
+            $value = $this->getBlankValue($page, $field);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Convert from DB storage to API value
+     * @param \ProcessWire\Page $page
+     * @param \ProcessWire\Field $field
+     * @param $value
+     * @return mixed|string
+     */
+    public function wakeupValue(Page $page, Field $field, $value)
+    {
+        $hours = $this->getBlankValue($page, $field);
+
+        for ($d = 1; $d <= 7; $d++) {
+            $hours[$d] = self::stringToBusinessDay($d, $value['day_' . $d]);
+        }
+
+        return $hours;
+    }
+
+    public function getBlankValue(Page $page, Field $field)
+    {
+        return new BusinessHours();
+    }
+
+    /**
+     * Convert from API to DB storage value
+     * @param \ProcessWire\Page $page
+     * @param \ProcessWire\Field $field
+     * @param $value
+     * @return array|int|string
+     * @throws \ProcessWire\WireException
+     */
+    public function sleepValue(Page $page, Field $field, $value)
+    {
+        if (!$value instanceof BusinessHours) {
+            throw new WireException('Expecting an instance of BusinessHours');
+        }
+
+        $sleepValue = [];
+        for ($d = 1; $d <= 7; $d++) {
+            $sleepValue['day_' . $d] = (string)$value[$d];
+        }
+
+        return $sleepValue;
+    }
+
+    public function getCompatibleFieldtypes(Field $field)
+    {
+        return null;
+    }
+
+    public function getDatabaseSchema(Field $field)
+    {
+        $schema = parent::getDatabaseSchema($field);
+        $schema['day_1'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_2'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_3'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_4'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_5'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_6'] = "VARCHAR(128) DEFAULT NULL";
+        $schema['day_7'] = "VARCHAR(128) DEFAULT NULL";
+
+        return $schema;
+    }
+}
