@@ -22,4 +22,4 @@ Days are from 1 to 7 where 1 is Monday and 7 is Sunday (ISO-8601)
 
 `echo $page->field_name[1];`
 
-`echo $page->field_name[1]->entries[0]->getFrom()->format('H:i');`
+`echo $page->field_name[1]->getEntries()->getFrom()->format('H:i');`

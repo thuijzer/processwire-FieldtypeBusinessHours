@@ -89,10 +89,12 @@ class BusinessHours extends WireData
                 }
                 // if not open, check if the prev day has a to-time that is smaller than the from-time
                 $yesterday = $this->get($day == 1 ? 7 : $day - 1);
-                $timeToCheck = new \DateTimeImmutable(date('H:i'));
-                foreach($yesterday->getEntries() as $entry) {
-                    if($entry->getTo() < $entry->getFrom() && $entry->getTo() > $timeToCheck) {
-                        return true;
+                if ($yesterday != null) {
+                    $timeToCheck = new \DateTimeImmutable(date('H:i'));
+                    foreach ($yesterday->getEntries() as $entry) {
+                        if ($entry->getTo() < $entry->getFrom() && $entry->getTo() > $timeToCheck) {
+                            return true;
+                        }
                     }
                 }
             }
